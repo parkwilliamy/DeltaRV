@@ -243,6 +243,10 @@ module top (
 
         if (!rst_n) begin
             IF_pc <= 0;
+            IF_ID <= 0;
+            ID_EX <= 0;
+            EX_MEM <= 0;
+            MEM_WB <= 0;
         end
 
         else begin
@@ -271,7 +275,7 @@ module top (
         .rs1_data(EX_rs1_data),
         .next_pc(next_pc)
     );
-
+            
 
     // =============================== REGFILE WRITE BACK ===============================
 
