@@ -144,8 +144,8 @@ module top (
     } = ID_EX;
 
 
-    assign EX_op1 = (EX_ALUOp == 1 && EX_ALUSrc == 1) ? 0: EX_rs1_data;
-    assign EX_op2 = EX_ALUSrc ? EX_eximm: EX_rs2_data;
+    assign EX_op1 = (EX_ALUOp == 1 && EX_ALUSrc == 1 && EX_RegSrc == 0 && EX_RegWrite == 1) ? 0 : EX_rs1_data;
+    assign EX_op2 = EX_ALUSrc ? EX_eximm : EX_rs2_data;
     wire [31:0] EX_ALU_result;
 
     ALU INST6 (
