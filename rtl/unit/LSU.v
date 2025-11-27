@@ -1,18 +1,19 @@
 `timescale 1ns/1ps
 
-module Store (
-    input MemWrite,
-    input [1:0] byte_offset,
-    input [31:0] rs2_data,
+module LSU (
+    input MemWrite, MemRead,
+    input [31:0] addrb, rs2_data,
     input [2:0] funct3,
     output reg [3:0] web,
     output reg [31:0] dib
 );
 
+    wire [1:0] byte_offset;
+    assign byte_offset = addrb % 4;
+
     always @ (*) begin
 
         dib = 0;
-        web = 0;
 
         if (MemWrite) begin
 

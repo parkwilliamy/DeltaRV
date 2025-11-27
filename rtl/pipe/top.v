@@ -27,8 +27,8 @@ module top (
 
     reg [31:0] IF_ID; 
     reg [162:0] ID_EX; 
-    reg [112:0] EX_MEM; 
-    reg [66:0] MEM_WB;
+    reg [109:0] EX_MEM; 
+    reg [139:0] MEM_WB;
 
     // *********************************** MODULES **************************************
                
@@ -67,9 +67,9 @@ module top (
     wire [31:0] ID_rs1_data;
     wire [31:0] ID_rs2_data;
 
-    wire MEM_RegWrite;
-    wire [4:0] MEM_rd;
-    reg [31:0] MEM_rd_write_data;
+    wire WB_RegWrite;
+    wire [4:0] WB_rd;
+    reg [31:0] WB_rd_write_data;
 
     ControlUnit INST2 (
         .opcode(ID_opcode), 
@@ -86,11 +86,11 @@ module top (
 
     RegFile INST3 (
         .clk(clk), 
-        .RegWrite(MEM_RegWrite), 
+        .RegWrite(WB_RegWrite), 
         .rs1(ID_rs1), 
         .rs2(ID_rs2), 
-        .rd(MEM_rd), 
-        .rd_write_data(MEM_rd_write_data), 
+        .rd(WB_rd), 
+        .rd_write_data(WB_rd_write_data), 
         .rs1_data(ID_rs1_data), 
         .rs2_data(ID_rs2_data)
     );
@@ -156,19 +156,7 @@ module top (
         EX_rd,
         EX_rs1,
         EX_rs2
-    } = {
-        ID_EX[162:121],
-        (Stall ? 0 : ID_EX[120:119]),
-        (Stall ? 0 : ID_EX[118:117]),
-        (Stall ? 0 : ID_EX[116]),
-        (Stall ? 0 : ID_EX[115]),
-        (Stall ? 0 : ID_EX[114]),
-        (Stall ? 0 : ID_EX[113]),
-        (Stall ? 0 : ID_EX[112]),
-        (Stall ? 0 : ID_EX[111]),
-        ID_EX[110:0]
-        };
-
+    } = ID_EX;
 
     assign EX_op1 = (EX_ALUOp == 1 && EX_ALUSrc == 1 && EX_RegSrc == 0 && EX_RegWrite == 1) ? 0 : EX_rs1_data_final;
     assign EX_op2 = EX_ALUSrc ? EX_eximm : EX_rs2_data_final;
@@ -197,21 +185,20 @@ module top (
         .branch_taken(EX_branch_taken)
     );
 
-    assign addrb = EX_ALU_result;
-    wire [1:0] EX_byte_offset;
-    assign EX_byte_offset = addrb % 4;
+    wire [31:0] EX_pc_eximm;
+    assign EX_pc_eximm = EX_pc + EX_eximm;
 
-    Store INST8 (
+    assign addrb = EX_ALU_result;
+
+    LSU INST8 (
         .MemWrite(EX_MemWrite),
-        .byte_offset(EX_byte_offset),
-        .rs2_data(EX_rs2_data_final),
+        .MemRead(EX_MemRead),
+        .addrb(EX_ALU_result),
+        .rs2_data(EX_rs2_data),
         .funct3(EX_funct3),
         .web(web),
         .dib(dib)
     );
-
-    wire [31:0] EX_pc_eximm;
-    assign EX_pc_eximm = EX_pc + EX_eximm;
 
 
     // ================================== MEMORY WRITE ==================================
@@ -220,11 +207,18 @@ module top (
     wire [2:0] MEM_funct3;
     wire [2:0] MEM_ValidReg;
     wire [1:0] MEM_RegSrc; 
-    wire MEM_MemRead;
     
     wire [31:0] MEM_pc_eximm;
     wire [31:0] MEM_ALU_result;
-    wire [1:0] MEM_byte_offset;
+    wire [4:0] MEM_rd;
+
+    wire [1:0] byte_offset;
+    assign byte_offset = MEM_ALU_result % 4;
+
+    wire [31:0] DMEM_shifted_word; // for loads
+    assign DMEM_shifted_word = dob >> 8*byte_offset;
+
+    reg [31:0] MEM_DMEM_result; // properly formatted data for load instructions
 
     assign {
         MEM_pc,
@@ -233,32 +227,25 @@ module top (
         MEM_ValidReg,
         MEM_RegSrc, 
         MEM_RegWrite, 
-        MEM_MemRead,  
         MEM_ALU_result,
-        MEM_byte_offset,
         MEM_rd
     } = EX_MEM;
 
-    reg [31:0] MEM_DMEM_result; // properly formatted data for load instructions
-    
-
-    Load INST9 (
-        .MemRead(MEM_MemRead),
-        .byte_offset(MEM_byte_offset),
-        .DMEM_word(dob),
-        .funct3(MEM_funct3),
-        .DMEM_result(MEM_DMEM_result)
-    );
 
     // =============================== REGFILE WRITE BACK ===============================
 
     wire [2:0] WB_ValidReg;
-    wire [31:0] WB_rd_write_data;
-    wire [4:0] WB_rd;
+    wire [1:0] WB_RegSrc;
+    wire [31:0] WB_ALU_result, WB_DMEM_result, WB_pc, WB_pc_eximm;
     
     assign {
         WB_ValidReg,
-        WB_rd_write_data,
+        WB_RegSrc,
+        WB_RegWrite,
+        WB_ALU_result,
+        WB_DMEM_result,
+        WB_pc,
+        WB_pc_eximm,
         WB_rd
     } = MEM_WB;
 
@@ -270,7 +257,10 @@ module top (
     wire EX_rs1_fwd, EX_rs2_fwd;
 
     ForwardUnit INST10 (
-        .MEM_rd_write_data(MEM_rd_write_data),
+        .MEM_ALU_result(MEM_ALU_result),
+        .MEM_pc(MEM_pc),
+        .MEM_pc_eximm(MEM_pc_eximm),
+        .MEM_RegSrc(MEM_RegSrc),
         .WB_rd_write_data(WB_rd_write_data),
         .EX_rs1(EX_rs1), 
         .EX_rs2(EX_rs2), 
@@ -311,12 +301,24 @@ module top (
         end
 
         else begin
+            
+            if (Stall) begin
 
+                IF_pc <= IF_pc;
+                IF_ID <= IF_ID;
+                ID_EX <= {EX_pc, 3'b000, 4'b0000, 3'b000, 2'b00, 2'b00, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, EX_rs1_data, EX_rs2_data, EX_eximm, EX_rd, EX_rs1, EX_rs2};
+                EX_MEM <= {EX_pc, EX_pc_eximm, EX_funct3, EX_ValidReg, EX_RegSrc, EX_RegWrite, EX_ALU_result, EX_rd};
+                MEM_WB <= {MEM_ValidReg, MEM_RegSrc, MEM_RegWrite, MEM_ALU_result, MEM_DMEM_result, MEM_pc, MEM_pc_eximm, MEM_rd};
+
+            end else begin
+            
             IF_pc <= next_pc; 
             IF_ID <= IF_pc;
             ID_EX <= {ID_pc, ID_funct3, ID_field, ID_ValidReg, ID_ALUOp, ID_RegSrc, ID_ALUSrc, ID_RegWrite, ID_MemRead, ID_MemWrite, ID_Branch, ID_Jump, ID_rs1_data, ID_rs2_data, ID_eximm, ID_rd, ID_rs1, ID_rs2};
-            EX_MEM <= {EX_pc, EX_pc_eximm, EX_funct3, EX_ValidReg, EX_RegSrc, EX_RegWrite, EX_MemRead, EX_ALU_result, EX_byte_offset, EX_rd};
-            MEM_WB <= {MEM_ValidReg, MEM_rd_write_data, MEM_rd};
+            EX_MEM <= {EX_pc, EX_pc_eximm, EX_funct3, EX_ValidReg, EX_RegSrc, EX_RegWrite, EX_ALU_result, EX_rd};
+            MEM_WB <= {MEM_ValidReg, MEM_RegSrc, MEM_RegWrite, MEM_ALU_result, MEM_DMEM_result, MEM_pc, MEM_pc_eximm, MEM_rd};
+
+            end
 
         end
 
@@ -336,21 +338,40 @@ module top (
         .rs1_data(EX_rs1_data),
         .next_pc(next_pc)
     );
+
+
+    // ================================== MEMORY WRITE ==================================
+
+    always @ (*) begin
+
+        case (MEM_funct3) 
+        
+            3'b000: MEM_DMEM_result = {{24{DMEM_shifted_word[7]}}, DMEM_shifted_word[7:0]}; // LB
+            3'b001: MEM_DMEM_result = {{16{DMEM_shifted_word[15]}}, DMEM_shifted_word[15:0]}; // LH
+            3'b010: MEM_DMEM_result = DMEM_shifted_word; // LW
+            3'b100: MEM_DMEM_result = {24'b0, DMEM_shifted_word[7:0]}; // LBU
+            3'b101: MEM_DMEM_result = {16'b0, DMEM_shifted_word[15:0]}; // LHU
+
+        endcase
+
+    end
             
 
     // =============================== REGFILE WRITE BACK ===============================
 
     always @ (*) begin
 
-        case (MEM_RegSrc) 
+        case (WB_RegSrc) 
 
-            0: MEM_rd_write_data = MEM_ALU_result;
-            1: MEM_rd_write_data = MEM_DMEM_result;
-            2: MEM_rd_write_data = MEM_pc_eximm;
-            3: MEM_rd_write_data = MEM_pc+4;
+            0: WB_rd_write_data = WB_ALU_result;
+            1: WB_rd_write_data = WB_DMEM_result;
+            2: WB_rd_write_data = WB_pc_eximm;
+            3: WB_rd_write_data = WB_pc+4;
 
         endcase
 
     end    
+
+    // TODO: PUT MUXES OR SMTH ON THE INPUT SO ONLY REG VALUES ARE FORWARDED AND DECISIONS MADE AFTER
 
 endmodule
