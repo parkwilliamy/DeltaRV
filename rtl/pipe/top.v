@@ -6,9 +6,9 @@ module top (
 
     // ************************************* MEMORY ************************************* 
 
-    reg [3:0] wea, web;
+    wire [3:0] wea, web;
     wire [31:0] addra, addrb, doa, dob; // Port A is IMEM, Port B is DMEM
-    reg [31:0] dia, dib;
+    wire [31:0] dia, dib;
 
     // byte addressable memory that uses the nearest word as an index
     BRAM INST1 ( 
@@ -209,7 +209,7 @@ module top (
     wire [31:0] MEM_pc_eximm;
     wire [31:0] MEM_ALU_result;
 
-    reg [31:0] MEM_DMEM_result; // properly formatted data for load instructions
+    wire [31:0] MEM_DMEM_result; // properly formatted data for load instructions
 
     assign {
         MEM_pc,
@@ -242,7 +242,7 @@ module top (
         WB_rd
     } = MEM_WB;
 
-    reg [31:0] next_pc;
+    wire [31:0] next_pc;
 
 
     // ================================== FORWARDING ====================================

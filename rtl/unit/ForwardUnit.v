@@ -36,15 +36,17 @@ module ForwardUnit (
         if (rs1_WB_fwd) begin
             if (rs1_MEM_fwd) begin
                 if (MEM_rd != WB_rd) rs1_fwd_data = WB_rd_write_data;
+                else rs1_fwd_data = MEM_rd_write_data;
             end
-            else rs1_fwd_data = MEM_rd_write_data;
+            else rs1_fwd_data = WB_rd_write_data;
         end
 
         if (rs2_WB_fwd) begin
             if (rs2_MEM_fwd) begin
                 if (MEM_rd != WB_rd) rs2_fwd_data = WB_rd_write_data;
+                else rs2_fwd_data = MEM_rd_write_data;
             end
-            else rs2_fwd_data = MEM_rd_write_data;
+            else rs2_fwd_data = WB_rd_write_data;
         end
 
     end

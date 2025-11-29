@@ -1,8 +1,8 @@
 `timescale 1ns/1ps
 
-module top_tb (input reg rst_n, clk);
+module top_tb ();
 
-    //reg rst_n, clk; 
+    reg rst_n, clk; 
     top DUT (.rst_n(rst_n), .clk(clk));
 
     reg [1000*8:1] program_file;  
@@ -11,8 +11,8 @@ module top_tb (input reg rst_n, clk);
     
     // Clock generation
     initial begin
-        //clk = 0;
-        //forever #5 clk = ~clk;  // 100 MHz
+        clk = 0;
+        forever #5 clk = ~clk;  // 100 MHz
     end
 
     integer i;
@@ -20,8 +20,8 @@ module top_tb (input reg rst_n, clk);
 
     initial begin
 
-        //$dumpfile("sim.vcd");        // Specify the output file name
-        //$dumpvars(0, top_tb);        // Dump all variables in top_tb module
+        $dumpfile("sim.vcd");        // Specify the output file name
+        $dumpvars(0, top_tb);        // Dump all variables in top_tb module
 
         // Argument loading
 
@@ -32,7 +32,7 @@ module top_tb (input reg rst_n, clk);
 
         $display("Loading program from %s", program_file);
 
-        $readmemh(program_file, DUT.BRAM.mem, 0);
+        $readmemh(program_file, DUT.INST1.mem, 0);
 
         if (!$value$plusargs("begin_signature=%h", RVMODEL_DATA_BEGIN)) begin
             $display("No RVMODEL_DATA_BEGIN address specified! Using default address 0x00005000");
@@ -55,14 +55,17 @@ module top_tb (input reg rst_n, clk);
         
         $display("tohost: %h", tohost);
 
-        //rst_n = 0;
-        //#20;
-        //rst_n = 1;
+        rst_n = 0;
+        #20;
+        rst_n = 1;
+
+        #1000;
+        $finish;
 
         
 
     end
-
+/*
     always @ (posedge clk) begin
         if (DUT.BRAM.mem[tohost/4] == 8'h00000001) begin
 
@@ -84,6 +87,6 @@ module top_tb (input reg rst_n, clk);
 
         end
     endtask
-   
+   */
 
 endmodule
