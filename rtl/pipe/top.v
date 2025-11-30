@@ -180,8 +180,8 @@ module top (
     wire [1:0] MEM_RegSrc; 
     wire MEM_RegWrite;
     
-    wire [31:0] MEM_pc_imm, MEM_ALU_result, MEM_rs2_data;
-    wire [4:0] MEM_rd;
+    wire [31:0] MEM_pc_imm, MEM_ALU_result, MEM_rs2_data, MEM_rs2_fwd_data, MEM_rs2_data_final;
+    wire [4:0] MEM_rs2, MEM_rd;
 
     assign {
         MEM_pc,
@@ -202,7 +202,7 @@ module top (
     Store INST8 (
         .MemWrite(MEM_MemWrite),
         .addrb(MEM_ALU_result),
-        .rs2_data(MEM_rs2_data),
+        .rs2_data(MEM_rs2_data_final),
         .funct3(MEM_funct3),
         .web(web),
         .dib(dib)
@@ -211,9 +211,10 @@ module top (
 
     // =============================== REGFILE WRITE BACK ===============================
 
-    wire [31:0] WB_pc_imm, WB_pc, WB_ALU_result;
+    wire [31:0] WB_pc_imm, WB_pc, WB_ALU_result, WB_DMEM_result;
     wire [2:0] WB_funct3, WB_ValidReg;
     wire [1:0] WB_RegSrc; 
+    wire WB_MemRead;
     
     assign {
         WB_pc,
@@ -221,6 +222,7 @@ module top (
         WB_funct3,
         WB_ValidReg,
         WB_RegSrc,
+        WB_MemRead,
         WB_RegWrite,
         WB_ALU_result,
         WB_rd
@@ -262,25 +264,32 @@ module top (
         .WB_rd_write_data(WB_rd_write_data),
         .EX_rs1(EX_rs1), 
         .EX_rs2(EX_rs2), 
+        .MEM_rs2(MEM_rs2),
         .MEM_rd(MEM_rd), 
         .WB_rd(WB_rd),
         .EX_ValidReg(EX_ValidReg), 
         .MEM_ValidReg(MEM_ValidReg), 
         .WB_ValidReg(WB_ValidReg),
-        .rs1_fwd(EX_rs1_fwd), 
-        .rs2_fwd(EX_rs2_fwd),
-        .rs1_fwd_data(EX_rs1_fwd_data),
-        .rs2_fwd_data(EX_rs2_fwd_data)
+        .MEM_MemWrite(MEM_MemWrite),
+        .WB_MemRead(MEM_MemRead),
+        .EX_rs1_fwd(EX_rs1_fwd), 
+        .EX_rs2_fwd(EX_rs2_fwd),
+        .MEM_rs2_fwd(MEM_rs2_fwd),
+        .EX_rs1_fwd_data(EX_rs1_fwd_data),
+        .EX_rs2_fwd_data(EX_rs2_fwd_data),
+        .MEM_rs2_fwd_data(MEM_rs2_fwd_data)
     );
 
     assign EX_rs1_data_final = (EX_rs1_fwd) ? EX_rs1_fwd_data : EX_rs1_data;
     assign EX_rs2_data_final = (EX_rs2_fwd) ? EX_rs2_fwd_data : EX_rs2_data;
+    assign MEM_rs2_data_final = (MEM_rs2_fwd) ? MEM_rs2_fwd_data : MEM_rs2_data;
 
 
     // =================================== STALLING =====================================
 
     StallUnit INST12 (
         .EX_MemRead(EX_MemRead),
+        .ID_MemWrite(ID_MemWrite),
         .EX_rd(EX_rd),
         .ID_rs1(ID_rs1),
         .ID_rs2(ID_rs2),
@@ -306,7 +315,7 @@ module top (
                 IF_ID <= IF_ID;
                 ID_EX <= {EX_pc, 3'b000, 4'b0000, 3'b000, 2'b00, 2'b00, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, EX_rs1_data, EX_rs2_data, EX_imm, EX_rd, EX_rs1, EX_rs2};
                 EX_MEM <= {EX_pc, EX_pc_imm, EX_funct3, EX_ValidReg, EX_RegSrc, EX_RegWrite, EX_MemRead, EX_MemWrite, EX_ALU_result, EX_rs2_data, EX_rd};
-                MEM_WB <= {MEM_pc, MEM_pc_imm, MEM_funct3, MEM_ValidReg, MEM_RegSrc, MEM_RegWrite, MEM_ALU_result, MEM_rd};
+            MEM_WB <= {MEM_pc, MEM_pc_imm, MEM_funct3, MEM_ValidReg, MEM_RegSrc, MEM_MemRead, MEM_RegWrite, MEM_ALU_result, MEM_rd};
 
             end else begin
             
@@ -314,7 +323,7 @@ module top (
             IF_ID <= IF_pc;
             ID_EX <= {ID_pc, ID_funct3, ID_field, ID_ValidReg, ID_ALUOp, ID_RegSrc, ID_ALUSrc, ID_RegWrite, ID_MemRead, ID_MemWrite, ID_Branch, ID_Jump, ID_rs1_data, ID_rs2_data, ID_imm, ID_rd, ID_rs1, ID_rs2};
             EX_MEM <= {EX_pc, EX_pc_imm, EX_funct3, EX_ValidReg, EX_RegSrc, EX_RegWrite, EX_MemRead, EX_MemWrite, EX_ALU_result, EX_rs2_data, EX_rd};
-            MEM_WB <= {MEM_pc, MEM_pc_imm, MEM_funct3, MEM_ValidReg, MEM_RegSrc, MEM_RegWrite, MEM_ALU_result, MEM_rd};
+            MEM_WB <= {MEM_pc, MEM_pc_imm, MEM_funct3, MEM_ValidReg, MEM_RegSrc, MEM_MemRead, MEM_RegWrite, MEM_ALU_result, MEM_rd};
 
             end
 
