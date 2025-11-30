@@ -9,6 +9,7 @@ _start:
     addi x5, x0, 5          # x5 = 5
     addi x6, x0, 3          # x6 = 6
     beq  x3, x6, p1         # if (x3 == x6), next_pc = p1
+    addi x10, x0, 5         # x10 = 5
     
 
 p1:
