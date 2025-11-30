@@ -16,10 +16,10 @@ _start:
     # load store tests begin
 
     lw    x10, 0(x5)
-    sw    x11, 12(x5)
+    sw    x10, 12(x5)
 
     lb    x12, 4(x5)
-    sh    x13, 16(x5)
+    sh    x12, 16(x5)
     
     
     .section .data
@@ -28,8 +28,8 @@ my_data:
     .word 0                 # reserve 4 bytes for x6
     .hword 0                # reserve 2 bytes for x7
     .hword 0                # reserve 2 bytes for x8
-    .word 0                 # reserve 4 bytes for x11
-    .hword 0                # reserve 2 bytes for x13
+    .word 0                 # reserve 4 bytes for x10
+    .hword 0                # reserve 2 bytes for x12
 
 
 
