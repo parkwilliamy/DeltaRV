@@ -27,7 +27,7 @@ module top (
 
     reg [31:0] IF_ID; 
     reg [162:0] ID_EX; 
-    reg [150:0] EX_MEM; 
+    reg [182:0] EX_MEM; 
     reg [109:0] MEM_WB;
 
     // *********************************** MODULES **************************************
@@ -46,7 +46,7 @@ module top (
     wire [19:15] ID_rs1;
     wire [24:20] ID_rs2;
     wire [31:25] ID_funct7;
-    wire ID_Stall;
+    wire ID_Stall, ID_Flush;
 
     assign ID_instruction = doa;
     assign ID_pc = IF_ID;
@@ -63,7 +63,7 @@ module top (
     wire [1:0] ID_ALUOp, ID_RegSrc; 
     wire ID_ALUSrc, ID_RegWrite, ID_MemRead, ID_MemWrite, ID_Branch, ID_Jump; // EX, WB, MEM, MEM, WB, MEM, MEM
     wire [3:0] ID_field;
-    wire [31:0] ID_imm, ID_rs1_data, ID_rs2_data;
+    wire [31:0] ID_imm, ID_pc_imm, ID_rs1_data, ID_rs2_data;
 
     wire WB_RegWrite;
     wire [4:0] WB_rd;
@@ -105,6 +105,8 @@ module top (
         .regbit(ID_opcode[5]), 
         .field(ID_field)
     );
+
+    assign ID_pc_imm = ID_pc + ID_imm;
     
 
     // ==================================== EXECUTE =====================================
@@ -115,13 +117,16 @@ module top (
     wire [2:0] EX_ValidReg, EX_funct3;
     wire [1:0] EX_ALUOp, EX_RegSrc; 
     wire EX_ALUSrc, EX_RegWrite, EX_MemRead, EX_MemWrite, EX_Branch, EX_Jump;
-    wire [31:0] EX_pc, EX_rs1_data, EX_rs2_data, EX_imm;
+    wire [31:0] EX_pc, EX_rs1_data, EX_rs2_data, EX_imm, EX_pc_imm;
     wire [4:0] EX_rs1, EX_rs2, EX_rd;
 
     wire [31:0] EX_op1, EX_op2, EX_rs1_fwd_data, EX_rs2_fwd_data, EX_rs1_data_final, EX_rs2_data_final;
 
+    wire EX_Flush;
+
     assign {
         EX_pc,
+        EX_pc_imm,
         EX_funct3,
         EX_field,
         EX_ValidReg, 
@@ -169,8 +174,8 @@ module top (
         .branch_taken(EX_branch_taken)
     );
 
-    wire [31:0] EX_pc_imm;
-    assign EX_pc_imm = EX_pc + EX_imm;
+    wire [31:0] EX_rs1_imm;
+    assign EX_rs1_imm = EX_rs1_data_final + EX_imm;
 
 
     // ================================== MEMORY WRITE ==================================
@@ -247,9 +252,11 @@ module top (
         .Jump(EX_Jump),
         .ALUSrc(EX_ALUSrc),
         .pc(IF_pc),
-        .imm(EX_imm),
-        .rs1_data(EX_rs1_data),
-        .next_pc(next_pc)
+        .pc_imm(ID_pc_imm),
+        .rs1_imm(EX_rs1_imm),
+        .next_pc(next_pc),
+        .ID_Flush(ID_Flush),
+        .EX_Flush(EX_Flush)
     );
 
 
@@ -310,20 +317,35 @@ module top (
         end
 
         else begin
+
+            if (ID_Flush || EX_Flush) begin
+
+                IF_pc <= next_pc;
+
+                if (ID_Flush) IF_ID <= 32'b0;
+                else IF_ID <= IF_pc;
+                if (EX_Flush) ID_EX <= 163'b0;
+                else ID_EX <= {ID_pc, ID_pc_imm, ID_funct3, ID_field, ID_ValidReg, ID_ALUOp, ID_RegSrc, ID_ALUSrc, ID_RegWrite, ID_MemRead, ID_MemWrite, ID_Branch, ID_Jump, ID_rs1_data, ID_rs2_data, ID_imm, ID_rd, ID_rs1, ID_rs2};
+
+                EX_MEM <= {EX_pc, EX_pc_imm, EX_funct3, EX_ValidReg, EX_RegSrc, EX_RegWrite, EX_MemRead, EX_MemWrite, EX_ALU_result, EX_rs2_data, EX_rs2, EX_rd};
+                MEM_WB <= {MEM_pc, MEM_pc_imm, MEM_funct3, MEM_ValidReg, MEM_RegSrc, MEM_MemRead, MEM_RegWrite, MEM_ALU_result, MEM_rd};
+
+            end
             
-            if (ID_Stall) begin
+            else if (ID_Stall) begin
 
                 IF_pc <= IF_pc;
                 IF_ID <= IF_ID;
-                ID_EX <= {EX_pc, 3'b000, 4'b0000, 3'b000, 2'b00, 2'b00, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, EX_rs1_data, EX_rs2_data, EX_imm, EX_rd, EX_rs1, EX_rs2};
+                ID_EX <= {EX_pc, EX_pc_imm, 3'b000, 4'b0000, 3'b000, 2'b00, 2'b00, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, 1'b0, EX_rs1_data, EX_rs2_data, EX_imm, EX_rd, EX_rs1, EX_rs2};
                 EX_MEM <= {EX_pc, EX_pc_imm, EX_funct3, EX_ValidReg, EX_RegSrc, EX_RegWrite, EX_MemRead, EX_MemWrite, EX_ALU_result, EX_rs2_data, EX_rs2, EX_rd};
-            MEM_WB <= {MEM_pc, MEM_pc_imm, MEM_funct3, MEM_ValidReg, MEM_RegSrc, MEM_MemRead, MEM_RegWrite, MEM_ALU_result, MEM_rd};
+                MEM_WB <= {MEM_pc, MEM_pc_imm, MEM_funct3, MEM_ValidReg, MEM_RegSrc, MEM_MemRead, MEM_RegWrite, MEM_ALU_result, MEM_rd};
+                
 
             end else begin
             
             IF_pc <= next_pc; 
             IF_ID <= IF_pc;
-            ID_EX <= {ID_pc, ID_funct3, ID_field, ID_ValidReg, ID_ALUOp, ID_RegSrc, ID_ALUSrc, ID_RegWrite, ID_MemRead, ID_MemWrite, ID_Branch, ID_Jump, ID_rs1_data, ID_rs2_data, ID_imm, ID_rd, ID_rs1, ID_rs2};
+            ID_EX <= {ID_pc, ID_pc_imm, ID_funct3, ID_field, ID_ValidReg, ID_ALUOp, ID_RegSrc, ID_ALUSrc, ID_RegWrite, ID_MemRead, ID_MemWrite, ID_Branch, ID_Jump, ID_rs1_data, ID_rs2_data, ID_imm, ID_rd, ID_rs1, ID_rs2};
             EX_MEM <= {EX_pc, EX_pc_imm, EX_funct3, EX_ValidReg, EX_RegSrc, EX_RegWrite, EX_MemRead, EX_MemWrite, EX_ALU_result, EX_rs2_data, EX_rs2, EX_rd};
             MEM_WB <= {MEM_pc, MEM_pc_imm, MEM_funct3, MEM_ValidReg, MEM_RegSrc, MEM_MemRead, MEM_RegWrite, MEM_ALU_result, MEM_rd};
 
