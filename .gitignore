@@ -18,6 +18,7 @@ xvlog*
 xelab*
 xsim*
 xsim.dir/
+sim/obj_dir/
 
 # Generated bitstreams
 *.bit
