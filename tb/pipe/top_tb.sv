@@ -1,8 +1,8 @@
 `timescale 1ns/1ps
 
-module top_tb ();
+module top_tb (input rst_n, clk);
 
-    reg rst_n, clk; 
+    //reg rst_n, clk; 
     top DUT (.rst_n(rst_n), .clk(clk));
 
     reg [1000*8:1] program_file;  
@@ -11,8 +11,8 @@ module top_tb ();
     
     // Clock generation
     initial begin
-        clk = 0;
-        forever #5 clk = ~clk;  // 100 MHz
+        //clk = 0;
+        //forever #5 clk = ~clk;  // 100 MHz
     end
 
     integer i;
@@ -20,8 +20,8 @@ module top_tb ();
 
     initial begin
 
-        $dumpfile("sim.vcd");        // Specify the output file name
-        $dumpvars(0, top_tb);        // Dump all variables in top_tb module
+        //$dumpfile("sim.vcd");        // Specify the output file name
+        //$dumpvars(0, top_tb);        // Dump all variables in top_tb module
 
         // Argument loading
 
@@ -55,19 +55,14 @@ module top_tb ();
         
         $display("tohost: %h", tohost);
 
-        rst_n = 0;
-        #20;
-        rst_n = 1;
-
-        #1000;
-        $finish;
-
-        
+        //rst_n = 0;
+        //#20;
+        //rst_n = 1;
 
     end
-/*
+
     always @ (posedge clk) begin
-        if (DUT.BRAM.mem[tohost/4] == 8'h00000001) begin
+        if (DUT.INST1.mem[tohost/4] == 32'h00000001) begin
 
             dump_sigfile();
             $finish; // termination condition
@@ -80,13 +75,13 @@ module top_tb ();
             fd = $fopen("DUT-RV32I_test.signature", "w");
 
             for (i=RVMODEL_DATA_BEGIN; i < RVMODEL_DATA_END; i=i+4) begin
-                $fdisplay(fd, "%08h", (DUT.BRAM.mem[i/4]));
+                $fdisplay(fd, "%08h", (DUT.INST1.mem[i/4]));
             end
 
             $fclose(fd);
 
         end
     endtask
-   */
+   
 
 endmodule
