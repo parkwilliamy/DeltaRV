@@ -1,8 +1,13 @@
 `timescale 1ns/1ps
 
 module top (
-    input rst_n, clk
+    input rst_n, clk,
+    output reg [27:0] clk_cycles, // assuming peak clock speed around 75MHz and longest program length around 3s
+    output reg [12:0] retired_instructions, // assuming max instructions in a program around 8000
+    output reg [12:0] predictions_made, // total number of branch instructions
+    output reg [12:0] correct_predictions // total number of correct predictions
 );
+
 
     // ************************************* MEMORY ************************************* 
 
@@ -329,12 +334,17 @@ module top (
         .ID_ValidReg(ID_ValidReg),
         .Stall(ID_Stall)
     );
-
+    
     integer i;
 
     always @ (posedge clk or negedge rst_n) begin
 
         if (!rst_n) begin
+
+            clk_cycles <= 0;
+            retired_instructions <= 0;
+            correct_predictions <= 0;
+            predictions_made <= 0;
 
             IF_pc <= 0;
             IF_ID <= 0;
@@ -354,6 +364,11 @@ module top (
         else begin
 
             ID_PostFlush <= 0;
+            clk_cycles <= clk_cycles+1;
+
+            if (ID_Branch) predictions_made <= predictions_made+1;
+
+            if (WB_ValidReg != 3'b000) retired_instructions <= retired_instructions+1;
 
             if (ID_Flush || EX_Flush) begin
 
@@ -399,8 +414,18 @@ module top (
 
                     0: BHT[EX_BHTaddr] <= BHT[EX_BHTaddr]+1;
                     1: BHT[EX_BHTaddr] <= BHT[EX_BHTaddr]-1;
-                    2: if (BHT[EX_BHTaddr] > 0)  BHT[EX_BHTaddr] <= BHT[EX_BHTaddr]-1;
-                    3: if (BHT[EX_BHTaddr] < 3 && EX_branch_prediction > 1)  BHT[EX_BHTaddr] <= BHT[EX_BHTaddr]+1;
+                    2: begin
+                        
+                        if (BHT[EX_BHTaddr] > 0)  BHT[EX_BHTaddr] <= BHT[EX_BHTaddr]-1;
+                        correct_predictions <= correct_predictions+1;
+
+                    end
+                    3: begin
+                        
+                        if (BHT[EX_BHTaddr] < 3 && EX_branch_prediction > 1)  BHT[EX_BHTaddr] <= BHT[EX_BHTaddr]+1;
+                        correct_predictions <= correct_predictions+1;
+
+                    end
 
                 endcase
 
