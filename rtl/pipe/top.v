@@ -2,31 +2,29 @@
 
 module top (
     input rst_n, clk,
-    output reg [27:0] clk_cycles, // assuming peak clock speed around 75MHz and longest program length around 3s
-    output reg [12:0] retired_instructions, // assuming max instructions in a program around 8000
-    output reg [12:0] predictions_made, // total number of branch instructions
-    output reg [12:0] correct_predictions, // total number of correct predictions
-    output reg [12:0] invalid_clk_cycles // clock cycles elapsed where an invalid instruction is in the pipeline
+    output led
 );
 
 
     // ************************************* MEMORY ************************************* 
 
     wire [3:0] wea, web;
-    wire [31:0] addra, addrb, doa, dob; // Port A is IMEM, Port B is DMEM
+    wire [12:0] addra, addrb;
+    wire [31:0] doa, dob; // Port A is IMEM, Port B is DMEM
     wire [31:0] dia, dib;
 
     // byte addressable memory that uses the nearest word as an index
-    BRAM INST1 ( 
-        .clk(clk),
+    blk_mem_gen_0 INST1 ( 
+        .clka(clk),
+        .clkb(clk),
         .wea(wea),
         .web(web),
         .addra(addra),
         .addrb(addrb),
-        .dia(dia),
-        .dib(dib),
-        .doa(doa),
-        .dob(dob)
+        .dina(dia),
+        .dinb(dib),
+        .douta(doa),
+        .doutb(dob)
     );
 
     // ******************************** PIPELINE REGISTERS ******************************
@@ -42,7 +40,6 @@ module top (
 
     reg [31:0] IF_pc;
     wire [31:0] IF_pc_4;
-    
     
     // =============================== INSTRUCTION DECODE ===============================
 
@@ -81,7 +78,7 @@ module top (
 
     wire WB_RegWrite;
     wire [4:0] WB_rd;
-    reg [31:0] WB_rd_write_data;
+    wire [31:0] WB_rd_write_data;
 
     ControlUnit INST2 (
         .opcode(ID_opcode), 
@@ -341,15 +338,11 @@ module top (
     );
     
     integer i;
+    assign led = ID_Branch;
 
     always @ (posedge clk or negedge rst_n) begin
 
         if (!rst_n) begin
-
-            clk_cycles <= 0;
-            retired_instructions <= 0;
-            correct_predictions <= 0;
-            predictions_made <= 0;
 
             IF_pc <= 0;
             IF_ID <= 0;
@@ -370,13 +363,6 @@ module top (
         else begin
 
             ID_PostFlush <= 0;
-            clk_cycles <= clk_cycles+1;
-
-            if (EX_Branch) predictions_made <= predictions_made+1;
-
-            if (!ID_Valid) invalid_clk_cycles <= invalid_clk_cycles+1;
-
-            if (WB_ValidReg != 3'b000) retired_instructions <= retired_instructions+1;
 
             if (ID_Flush || EX_Flush) begin
 
@@ -435,13 +421,11 @@ module top (
                     2: begin
                         
                         if (BHT[EX_BHTaddr] > 0)  BHT[EX_BHTaddr] <= BHT[EX_BHTaddr]-1;
-                        correct_predictions <= correct_predictions+1;
 
                     end
                     3: begin
                         
                         if (BHT[EX_BHTaddr] < 3 && EX_branch_prediction > 1)  BHT[EX_BHTaddr] <= BHT[EX_BHTaddr]+1;
-                        correct_predictions <= correct_predictions+1;
 
                     end
 
