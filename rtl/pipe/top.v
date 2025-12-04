@@ -9,7 +9,7 @@ module top (
     // ************************************* MEMORY ************************************* 
 
     wire [3:0] wea, web;
-    wire [12:0] addra, addrb;
+    wire [12:0] addra, addrb; // 32 KB for IMEM and DMEM total
     wire [31:0] doa, dob; // Port A is IMEM, Port B is DMEM
     wire [31:0] dia, dib;
 
@@ -68,7 +68,7 @@ module top (
     assign ID_rs2 = ID_instruction[24:20];
     assign ID_funct7 = ID_instruction[31:25];
 
-    assign addra = ID_Stall ? ID_pc : IF_pc;
+    assign addra = ID_Stall ? ID_pc[12:0] : IF_pc[12:0];
 
     wire [2:0] ID_ValidReg;
     wire [1:0] ID_ALUOp, ID_RegSrc; 
