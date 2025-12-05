@@ -1,11 +1,12 @@
 `timescale 1ns/1ps
 
 module BTB (
-    input clk, rst_n, write,
-    input [12:0] pc,
+    input clk, rst_n, write, ID_Branch, ID_Jump,
+    input [12:0] IF_pc, ID_pc,
     input [31:0] pc_imm_in,
     output reg [31:0] pc_imm_out,
-    output hit
+    output hit,
+    output reg IF_Branch, IF_Jump
 );
 
     // 2-way set associative cache
@@ -13,48 +14,88 @@ module BTB (
                 LINES_PER_SET = 2, 
                 TAG_WIDTH = 9, 
                 SET_ID_WIDTH = 4,
-                LINE_WIDTH = 43;
+                LINE_WIDTH = 44;
 
-    reg [LINE_WIDTH-1:0] branch_target_buffer [NUM_OF_LINES-1:0]; // width = tag_bits + pc_imm + valid bit + FIFO bit
+    reg [LINE_WIDTH-1:0] branch_target_buffer [NUM_OF_LINES-1:0]; // width = tag_bits + pc_imm + branch bit + valid bit + FIFO bit
 
-    wire [TAG_WIDTH-1:0] tag;
-    wire [SET_ID_WIDTH-1:0] set_id;
-    wire [4:0] line_id1, line_id2;
+    wire [TAG_WIDTH-1:0] IF_tag, ID_tag;
+    wire [SET_ID_WIDTH-1:0] IF_set_id, ID_set_id;
+    wire [4:0] IF_line_id1, IF_line_id2, ID_line_id1, ID_line_id2;
 
-    assign tag = pc[12:4];
-    assign set_id = pc[3:0];
-    assign line_id1 = set_id*LINES_PER_SET;
-    assign line_id2 = line_id1+1;
+    assign IF_tag = IF_pc[12:4];
+    assign IF_set_id = IF_pc[3:0];
+    assign IF_line_id1 = IF_set_id*LINES_PER_SET;
+    assign IF_line_id2 = IF_line_id1+1;
 
+    assign ID_tag = ID_pc[12:4];
+    assign ID_set_id = ID_pc[3:0];
+    assign ID_line_id1 = ID_set_id*LINES_PER_SET;
+    assign ID_line_id2 = ID_line_id1+1;
+
+    // For Branch bit, 0 means jump, 1 means branch
     // For Valid bit, 1 means the pc_imm value is valid
     // For FIFO bit, 1 means the line came in first
 
-    wire valid1, valid2, fifo1, fifo2;
-    assign valid1 = branch_target_buffer[line_id1][1];
-    assign valid2 = branch_target_buffer[line_id2][1];
-    assign fifo1 = branch_target_buffer[line_id1][0];
-    assign fifo2 = branch_target_buffer[line_id2][0];
+    wire IF_branch1, IF_branch2, IF_valid1, IF_valid2, IF_fifo1, IF_fifo2;
+    assign IF_branch1 = branch_target_buffer[IF_line_id1][2];
+    assign IF_branch2 = branch_target_buffer[IF_line_id2][2];
+    assign IF_valid1 = branch_target_buffer[IF_line_id1][1];
+    assign IF_valid2 = branch_target_buffer[IF_line_id2][1];
+    assign IF_fifo1 = branch_target_buffer[IF_line_id1][0];
+    assign IF_fifo2 = branch_target_buffer[IF_line_id2][0];
 
-    wire [8:0] tag1, tag2;
-    assign tag1 = branch_target_buffer[line_id1][LINE_WIDTH-1:32+2];
-    assign tag2 = branch_target_buffer[line_id2][LINE_WIDTH-1:32+2];
+    wire ID_branch1, ID_branch2, ID_valid1, ID_valid2, ID_fifo1, ID_fifo2;
+    assign ID_branch1 = branch_target_buffer[ID_line_id1][2];
+    assign ID_branch2 = branch_target_buffer[ID_line_id2][2];
+    assign ID_valid1 = branch_target_buffer[ID_line_id1][1];
+    assign ID_valid2 = branch_target_buffer[ID_line_id2][1];
+    assign ID_fifo1 = branch_target_buffer[ID_line_id1][0];
+    assign ID_fifo2 = branch_target_buffer[ID_line_id2][0];
+
+    wire [8:0] IF_tag1, IF_tag2;
+    assign IF_tag1 = branch_target_buffer[IF_line_id1][LINE_WIDTH-1:32+3];
+    assign IF_tag2 = branch_target_buffer[IF_line_id2][LINE_WIDTH-1:32+3];
 
     wire [31:0] pc_imm1, pc_imm2;
-    assign pc_imm1 = branch_target_buffer[line_id1][LINE_WIDTH-TAG_WIDTH-1:2];
-    assign pc_imm2 = branch_target_buffer[line_id2][LINE_WIDTH-TAG_WIDTH-1:2];
+    assign pc_imm1 = branch_target_buffer[IF_line_id1][LINE_WIDTH-TAG_WIDTH-1:3];
+    assign pc_imm2 = branch_target_buffer[IF_line_id2][LINE_WIDTH-TAG_WIDTH-1:3];
     
     wire set_full;
-    assign set_full = valid1 && valid2;
+    assign set_full = ID_valid1 && ID_valid2;
 
-    assign hit = !write && ((tag1 == tag && valid1) || (tag2 == tag && valid2));
+    assign hit = ((IF_tag1 == IF_tag && IF_valid1) || (IF_tag2 == IF_tag && IF_valid2));
 
     // BTB reads
 
     always @ (*) begin
 
+        IF_Branch = 1;
+        IF_Jump = 0;
+
         // if tag matches and valid bit is 1
-        if (tag1 == tag && valid1) pc_imm_out = pc_imm1;
-        if (tag2 == tag && valid2) pc_imm_out = pc_imm2;
+        if (IF_tag1 == IF_tag && IF_valid1) begin
+            
+            if (!IF_branch1) begin
+
+                IF_Branch = 0;
+                IF_Jump = 1;
+
+            end
+            pc_imm_out = pc_imm1;
+
+        end
+
+        if (IF_tag2 == IF_tag && IF_valid2) begin
+            
+            if (!IF_branch2) begin
+
+                IF_Branch = 0;
+                IF_Jump = 1;
+
+            end
+            pc_imm_out = pc_imm2;
+
+        end
         
     end
 
@@ -68,7 +109,7 @@ module BTB (
 
             for (i = 0; i < NUM_OF_LINES; i = i+1) begin
 
-                branch_target_buffer[i] = 0;
+                branch_target_buffer[i] = 4; // set branch bit to 1 by default
 
             end
 
@@ -79,17 +120,17 @@ module BTB (
             if (write) begin   
 
                 // if data is invalid (ie after a reset) or set is full and current line was the first to come in
-                if (!valid1 || set_full && fifo1) begin
+                if (!ID_valid1 || set_full && ID_fifo1) begin
 
-                    branch_target_buffer[line_id2][0] <= 1;
-                    branch_target_buffer[line_id1] <= {tag, pc_imm_in, 1'b1, 1'b0}; 
+                    branch_target_buffer[ID_line_id2][0] <= 1;
+                    branch_target_buffer[ID_line_id1] <= {ID_tag, pc_imm_in, ID_Branch, 1'b1, 1'b0}; 
 
                 end
 
-                else if (!valid2 || set_full && fifo2) begin
+                else if (!ID_valid2 || set_full && ID_fifo2) begin
 
-                    branch_target_buffer[line_id1][0] <= 1;
-                    branch_target_buffer[line_id2] <= {tag, pc_imm_in, 1'b1, 1'b0}; 
+                    branch_target_buffer[ID_line_id1][0] <= 1;
+                    branch_target_buffer[ID_line_id2] <= {ID_tag, pc_imm_in, ID_Branch, 1'b1, 1'b0}; 
 
                 end
 
