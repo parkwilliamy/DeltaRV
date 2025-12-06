@@ -2,7 +2,7 @@
 
 module BTB (
     input clk, rst_n, write, ID_Branch, ID_Jump,
-    input [12:0] IF_pc, ID_pc,
+    input [31:0] IF_pc, ID_pc,
     input [31:0] pc_imm_in,
     output reg [31:0] pc_imm_out,
     output hit,
@@ -12,9 +12,9 @@ module BTB (
     // 2-way set associative cache
     localparam NUM_OF_LINES = 32, 
                 LINES_PER_SET = 2, 
-                TAG_WIDTH = 9, 
+                TAG_WIDTH = 26, 
                 SET_ID_WIDTH = 4,
-                LINE_WIDTH = 44;
+                LINE_WIDTH = 61;
 
     reg [LINE_WIDTH-1:0] branch_target_buffer [NUM_OF_LINES-1:0]; // width = tag_bits + pc_imm + branch bit + valid bit + FIFO bit
 
@@ -22,13 +22,13 @@ module BTB (
     wire [SET_ID_WIDTH-1:0] IF_set_id, ID_set_id;
     wire [4:0] IF_line_id1, IF_line_id2, ID_line_id1, ID_line_id2;
 
-    assign IF_tag = IF_pc[12:4];
-    assign IF_set_id = IF_pc[3:0];
+    assign IF_tag = IF_pc[31:6];
+    assign IF_set_id = IF_pc[5:2];
     assign IF_line_id1 = IF_set_id*LINES_PER_SET;
     assign IF_line_id2 = IF_line_id1+1;
 
-    assign ID_tag = ID_pc[12:4];
-    assign ID_set_id = ID_pc[3:0];
+    assign ID_tag = ID_pc[31:6];
+    assign ID_set_id = ID_pc[5:2];
     assign ID_line_id1 = ID_set_id*LINES_PER_SET;
     assign ID_line_id2 = ID_line_id1+1;
 
@@ -52,7 +52,7 @@ module BTB (
     assign ID_fifo1 = branch_target_buffer[ID_line_id1][0];
     assign ID_fifo2 = branch_target_buffer[ID_line_id2][0];
 
-    wire [8:0] IF_tag1, IF_tag2;
+    wire [TAG_WIDTH-1:0] IF_tag1, IF_tag2;
     assign IF_tag1 = branch_target_buffer[IF_line_id1][LINE_WIDTH-1:32+3];
     assign IF_tag2 = branch_target_buffer[IF_line_id2][LINE_WIDTH-1:32+3];
 
@@ -69,8 +69,9 @@ module BTB (
 
     always @ (*) begin
 
-        IF_Branch = 1;
+        IF_Branch = 0;
         IF_Jump = 0;
+        pc_imm_out = 0;
 
         // if tag matches and valid bit is 1
         if (IF_tag1 == IF_tag && IF_valid1) begin
@@ -81,6 +82,14 @@ module BTB (
                 IF_Jump = 1;
 
             end
+
+            else begin
+
+                IF_Branch = 1;
+                IF_Jump = 0;
+
+            end
+
             pc_imm_out = pc_imm1;
 
         end
@@ -93,6 +102,14 @@ module BTB (
                 IF_Jump = 1;
 
             end
+
+            else begin
+
+                IF_Branch = 1;
+                IF_Jump = 0;
+
+            end
+
             pc_imm_out = pc_imm2;
 
         end

@@ -31,7 +31,7 @@ module top (
 
     // ******************************** PIPELINE REGISTERS ******************************
 
-    reg [73:0] IF_ID; 
+    reg [74:0] IF_ID; 
     reg [204:0] ID_EX; 
     reg [148:0] EX_MEM; 
     reg [110:0] MEM_WB;
@@ -42,7 +42,7 @@ module top (
 
     reg [31:0] IF_pc;
     wire [31:0] IF_pc_4, IF_pc_imm, ID_pc_imm;
-    wire IF_Branch, IF_Jump, ID_Branch, ID_Jump, BTBwrite, BTBhit;
+    wire IF_Branch, IF_Jump, ID_Branch, ID_Jump, BTBwrite, IF_BTBhit;
 
     reg [1:0] BHT [255:0];
     reg [7:0] gh;
@@ -59,11 +59,11 @@ module top (
         .write(BTBwrite),
         .ID_Branch(ID_Branch),
         .ID_Jump(ID_Jump),
-        .IF_pc(IF_pc[12:0]),
-        .ID_pc(ID_pc[12:0]),
+        .IF_pc(IF_pc),
+        .ID_pc(ID_pc),
         .pc_imm_in(ID_pc_imm),
         .pc_imm_out(IF_pc_imm),
-        .hit(BTBhit),
+        .hit(IF_BTBhit),
         .IF_Branch(IF_Branch),
         .IF_Jump(IF_Jump)
     );
@@ -84,6 +84,7 @@ module top (
 
     wire [7:0] ID_BHTaddr;
     wire [1:0] ID_branch_prediction;
+    wire ID_BTBhit;
 
     assign ID_instruction = ID_PostFlush ? 0 : doa;
 
@@ -91,7 +92,8 @@ module top (
         ID_pc,
         ID_pc_4,
         ID_BHTaddr,
-        ID_branch_prediction
+        ID_branch_prediction,
+        ID_BTBhit
      } = IF_ID;
 
     assign ID_opcode = ID_instruction[6:0];
@@ -299,7 +301,8 @@ module top (
         .IF_branch_prediction(IF_branch_prediction),
         .ID_branch_prediction(ID_branch_prediction),
         .prediction_status(EX_prediction_status),
-        .BTBhit(BTBhit),
+        .IF_BTBhit(IF_BTBhit),
+        .ID_BTBhit(ID_BTBhit),
         .IF_Branch(IF_Branch),
         .IF_Jump(IF_Jump),
         .ID_Branch(ID_Branch),
@@ -411,11 +414,11 @@ module top (
 
                 if (ID_Flush) begin
 
-                    IF_ID <= 74'b0;
+                    IF_ID <= 75'b0;
                     ID_PostFlush <= 1;
 
                 end
-                else IF_ID <= {IF_pc, IF_pc_4, IF_BHTaddr, IF_branch_prediction};
+                else IF_ID <= {IF_pc, IF_pc_4, IF_BHTaddr, IF_branch_prediction, IF_BTBhit};
                 if (EX_Flush) ID_EX <= 205'b0;
                 else ID_EX <= {ID_pc_4, ID_pc_imm, ID_BHTaddr, ID_funct3, ID_field, ID_ValidReg, ID_ALUOp, ID_RegSrc, ID_ALUSrc, ID_RegWrite, ID_MemRead, ID_MemWrite, ID_Branch, ID_branch_prediction, ID_Jump, ID_rs1_data, ID_rs2_data, ID_imm, ID_rd, ID_rs1, ID_rs2};
 
@@ -436,7 +439,7 @@ module top (
             end else begin
             
                 IF_pc <= next_pc; 
-                IF_ID <= {IF_pc, IF_pc_4, IF_BHTaddr, IF_branch_prediction};
+                IF_ID <= {IF_pc, IF_pc_4, IF_BHTaddr, IF_branch_prediction, IF_BTBhit};
                 ID_EX <= {ID_pc_4, ID_pc_imm, ID_BHTaddr, ID_funct3, ID_field, ID_ValidReg, ID_ALUOp, ID_RegSrc, ID_ALUSrc, ID_RegWrite, ID_MemRead, ID_MemWrite, ID_Branch, ID_branch_prediction, ID_Jump, ID_rs1_data, ID_rs2_data, ID_imm, ID_rd, ID_rs1, ID_rs2};
                 EX_MEM <= {EX_pc_4, EX_pc_imm, EX_funct3, EX_ValidReg, EX_RegSrc, EX_RegWrite, EX_MemRead, EX_MemWrite, EX_ALU_result, EX_rs2_data_final, EX_rs2, EX_rd};
                 MEM_WB <= {MEM_pc_4, MEM_pc_imm, MEM_funct3, MEM_ValidReg, MEM_RegSrc, MEM_MemRead, MEM_RegWrite, MEM_ALU_result, MEM_rd};
