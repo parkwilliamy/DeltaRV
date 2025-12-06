@@ -33,7 +33,7 @@ module BRU (
         end
 
         if (EX_Branch) begin
-
+        
             if (((EX_branch_prediction == 2'b00 || EX_branch_prediction == 2'b01) && branch_taken_inter)) begin
 
                 prediction_status = 0;
@@ -57,8 +57,12 @@ module BRU (
                 prediction_status = 3;
 
             end
-
+            
+            else prediction_status = 0;
+            
         end
+        
+        else prediction_status = 0;
 
     end
     

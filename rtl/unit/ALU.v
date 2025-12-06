@@ -25,6 +25,9 @@ module ALU (
     assign overflow = (op1[31] != op2[31]) && (ALU_result[31] != op1[31]); // detects overflow for subtraction used in branch decisions
 
     always @(*) begin
+    
+        ALU_result = 0;
+        carry = 0;
 
         case (field) 
 

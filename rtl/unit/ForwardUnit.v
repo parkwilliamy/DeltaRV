@@ -24,6 +24,8 @@ module ForwardUnit (
     assign MEM_rs2_fwd = MEM_rs2_WB_fwd && MEM_rs2 != 0;
 
     always @ (*) begin
+    
+        MEM_rd_write_data = 0;
 
         case (MEM_RegSrc)
 
@@ -34,7 +36,9 @@ module ForwardUnit (
         endcase
 
         if (EX_rs1_MEM_fwd) EX_rs1_fwd_data = MEM_rd_write_data;
+        else EX_rs1_fwd_data = 0;
         if (EX_rs2_MEM_fwd) EX_rs2_fwd_data = MEM_rd_write_data;
+        else EX_rs2_fwd_data = 0;
 
         if (EX_rs1_WB_fwd) begin
             if (EX_rs1_MEM_fwd) begin
@@ -53,6 +57,7 @@ module ForwardUnit (
         end
 
         if (MEM_rs2_WB_fwd) MEM_rs2_fwd_data = WB_rd_write_data;
+        else MEM_rs2_fwd_data = 0;
 
     end
 

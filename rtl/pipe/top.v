@@ -39,7 +39,7 @@ module top (
     // =============================== INSTRUCTION FETCH ================================
 
     reg [31:0] IF_pc;
-    wire [31:0] IF_pc_4, IF_pc_imm, ID_pc_imm;
+    wire [31:0] IF_pc_4, IF_pc_imm, ID_pc, ID_pc_imm;
     wire IF_Branch, IF_Jump, ID_Branch, ID_Jump, BTBwrite, IF_BTBhit;
 
     reg [1:0] BHT [255:0];
@@ -56,7 +56,6 @@ module top (
         .rst_n(rst_n),
         .write(BTBwrite),
         .ID_Branch(ID_Branch),
-        .ID_Jump(ID_Jump),
         .IF_pc(IF_pc),
         .ID_pc(ID_pc),
         .pc_imm_in(ID_pc_imm),
@@ -68,7 +67,7 @@ module top (
     
     // =============================== INSTRUCTION DECODE ===============================
 
-    wire [31:0] ID_instruction, ID_pc, ID_pc_4;
+    wire [31:0] ID_instruction, ID_pc_4;
 
     wire [6:0] ID_opcode;
     wire [11:7] ID_rd;

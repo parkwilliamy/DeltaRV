@@ -17,6 +17,8 @@ module WriteBack (
     reg [31:0] DMEM_result;
 
     always @ (*) begin
+    
+        DMEM_result = 32'b0;
 
         case (funct3) 
         

@@ -9,6 +9,8 @@ module ALUControl(
 );
 
     always @(*) begin
+    
+        field = 4'b0000;
 
         case (ALUOp)
 

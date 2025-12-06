@@ -1,7 +1,7 @@
 `timescale 1ns/1ps
 
 module BTB (
-    input clk, rst_n, write, ID_Branch, ID_Jump,
+    input clk, rst_n, write, ID_Branch,
     input [31:0] IF_pc, ID_pc,
     input [31:0] pc_imm_in,
     output reg [31:0] pc_imm_out,
@@ -126,7 +126,7 @@ module BTB (
 
             for (i = 0; i < NUM_OF_LINES; i = i+1) begin
 
-                branch_target_buffer[i] = 4; // set branch bit to 1 by default
+                branch_target_buffer[i] <= 61'h4; // set branch bit to 1 by default
 
             end
 
