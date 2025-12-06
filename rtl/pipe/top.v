@@ -149,6 +149,7 @@ module top (
 
     RegFile INST4 (
         .clk(clk), 
+        .rst_n(rst_n),
         .RegWrite(WB_RegWrite), 
         .rs1(ID_rs1), 
         .rs2(ID_rs2), 
