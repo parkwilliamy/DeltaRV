@@ -1,10 +1,10 @@
 `timescale 1ns/1ps
 
 module Fetch(
-    input [1:0] IF1_branch_prediction, ID_branch_prediction, prediction_status, 
-    input IF1_BTBhit, ID_BTBhit, IF1_Branch, IF1_Jump, ID_Branch, EX_Branch, ID_Jump, EX_Jump, ID_ALUSrc, EX_ALUSrc,
-    input [31:0] IF1_pc, IF1_pc_imm, EX_pc_4, ID_pc_imm, EX_pc_imm, rs1_imm,
-    output [31:0] IF1_pc_4,
+    input [1:0] IF_branch_prediction, ID_branch_prediction, prediction_status, 
+    input BTBhit, IF_Branch, IF_Jump, ID_Branch, EX_Branch, ID_Jump, EX_Jump, ID_ALUSrc, EX_ALUSrc,
+    input [31:0] IF_pc, IF_pc_imm, EX_pc_4, ID_pc_imm, EX_pc_imm, rs1_imm,
+    output [31:0] IF_pc_4,
     output reg [31:0] next_pc,
     output reg IF2_Flush, ID_Flush, EX_Flush
 );
@@ -18,7 +18,7 @@ module Fetch(
         EX_Flush = 0;
         next_pc = IF1_pc_4;
 
-        if (IF1_BTBhit) begin
+        if (BTBhit) begin
 
             if (IF1_Branch) begin
 
@@ -30,7 +30,7 @@ module Fetch(
             
         end
 
-        if ((ID_Branch || ID_Jump) && !ID_BTBhit) begin
+        else begin
 
             if (ID_Branch) begin
 
@@ -47,10 +47,9 @@ module Fetch(
             // Jump Instruction Logic
             else if (ID_Jump && ID_ALUSrc == 0) begin 
 
-                next_pc = ID_pc_imm; // JAL
-                IF2_Flush = 1;
                 ID_Flush = 1;
-                
+                next_pc = ID_pc_imm; // JAL
+
             end
 
         end
