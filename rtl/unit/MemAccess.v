@@ -12,7 +12,7 @@ module MemAccess (
 );
 
     localparam ADDR_WIDTH = 16;
-    localparam IDLE = 3'b000, WRITE = 3'b001, READ_1 = 3'b010, READ_2 = 3'b011, READ_3 = 3'b100;
+    localparam IDLE = 3'b000, WRITE = 3'b001, READ_1 = 3'b010, READ_2 = 3'b011;
     reg [2:0] current_state, next_state;
 
     reg [55:0] write_frame;
@@ -82,15 +82,16 @@ module MemAccess (
 
                 READ_1: begin
 
-                    TX_enable <= 1;
-
-                    if (byte_done) begin
+                    if (byte_done || msgidx == 4) begin
 
                         if (msgidx == 4) begin
 
                             ADDR_LOW <= read_frame[ADDR_WIDTH-1+16:16];
                             ADDR_HIGH <= read_frame[ADDR_WIDTH-1:0];
                             addrb <= read_frame[ADDR_WIDTH-1+16:16];
+                            TX_data <= dob[7:0];
+                            word_idx <= word_idx+1;
+                            TX_enable <= 1;
 
                         end
 
@@ -107,14 +108,13 @@ module MemAccess (
 
                 READ_2: begin
 
-                    word_idx <= (word_idx+1)%4; // used to loop between 0-3 and select parts of data word to transmit
-                    TX_data <= dob[7+8*word_idx -: 8];
+                    if (byte_done) begin
 
-                end
+                        word_idx <= (word_idx+1)%4; // used to loop between 0-3 and select parts of data word to transmit
+                        if (addrb != ADDR_HIGH+4) TX_data <= dob[7+8*word_idx -: 8];
+                        if (word_idx == 3) addrb <= addrb+4;
 
-                READ_3: begin
-
-                    if (byte_done && word_idx == 0) addrb <= addrb+4; // once a word is finished transmitting
+                    end
 
                 end
 
@@ -147,26 +147,17 @@ module MemAccess (
 
             READ_1: begin
 
-                if (msgidx == 4 && byte_done) next_state = READ_2;
+                if (msgidx == 4) next_state = READ_2;
                 else next_state = READ_1;
 
             end
 
-            READ_2: next_state = READ_3;
-
-            READ_3: begin
-
-                if (byte_done) begin
-
-                    if (addrb == ADDR_HIGH) next_state = IDLE; // if last word was transmitted
-                    else next_state = READ_2; // if data still being transmitted from BRAM
-
-                end
-
-                else next_state = READ_3; // wait until UART module indicates it is finished sending a byte to host pc
+            READ_2: begin
+                
+                if (addrb == ADDR_HIGH+4 && byte_done) next_state = IDLE;
+                else next_state = READ_2;
 
             end
-
 
         endcase
 
